@@ -148,4 +148,16 @@ resource "aws_instance" "stock-rl-ec2-instance" {
 }
 
 # Create an SNS topic to send notifications when trades are made
-# Can wait to set this up until we discuss further
+resource "aws_sns_topic" "stock-rl-sns-topic" {
+  name = "stock-rl-sns-topic"
+}
+
+# Create an SNS topic subscription to send notifications to my email
+resource "aws_sns_topic_subscription" "stock-rl-sns-topic-subscription" {
+  topic_arn = aws_sns_topic.stock-rl-sns-topic.arn
+  protocol  = "email"
+  endpoint  = "your email address"
+  depends_on = [
+    aws_sns_topic.stock-rl-sns-topic
+  ]
+}
