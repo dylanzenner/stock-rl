@@ -67,7 +67,7 @@ resource "aws_route_table_association" "stock-rl-public-route-table-association"
 # Create a Security Group
 resource "aws_security_group" "stock-rl-security-group" {
   name        = "stock-rl-security-group"
-  description = "Allow inbound traffic from the Internet"
+  description = "Allow inbound / outbound traffic from the Internet"
   vpc_id      = aws_vpc.stock-rl-vpc.id
 
   ingress {
@@ -75,35 +75,77 @@ resource "aws_security_group" "stock-rl-security-group" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
-# Uncomment and add your IP address to allow SSH access to the EC2 instance
-#   ingress {
-#     description = "Allow SSH Access from your personal computer"
-#     from_port   = 22
-#     to_port     = 22
-#     protocol    = "tcp"
-#     cidr_blocks = [] # Add your IP address here in format "0.0.0.0/0"
-#   }
+  # Uncomment and add your IP address to allow SSH access to the EC2 instance
+  #   ingress {
+  #     description = "Allow SSH Access from your personal computer"
+  #     from_port   = 22
+  #     to_port     = 22
+  #     protocol    = "tcp"
+  #     cidr_blocks = [] # Add your IP address here in format "0.0.0.0/32"
+  #   }
 
   egress = [{
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    description      = "Allow all outbound traffic"
+    from_port        = 0
+    to_port          = 0
+    protocol         = "-1"
+    cidr_blocks      = ["0.0.0.0/0"]
     ipv6_cidr_blocks = ["::/0"]
-    prefix_list_ids = []
-    security_groups = []
-    self = false
-  
+    prefix_list_ids  = []
+    security_groups  = []
+    self             = false
   }]
+
+  tags = {
+    Name = "stock-rl-security-group"
+  }
 }
 
 
-# Create an EC2 Instance
-# will wait to see what we need for sure before setting this up
+# Create a network interface
+resource "aws_network_interface" "stock-rl-network-interface" {
+  subnet_id       = aws_subnet.stock-rl-public-subnet.id
+  private_ip      = "10.0.128.100"
+  security_groups = [aws_security_group.stock-rl-security-group.id]
+}
 
+# Create an EIP
+resource "aws_eip" "stock-rl-eip" {
+  vpc                       = true
+  network_interface         = aws_network_interface.stock-rl-network-interface.id
+  associate_with_private_ip = "10.0.128.100"
+  depends_on = [
+    aws_internet_gateway.stock-rl-igw
+  ]
+}
+
+# Create an EC2 Instance
+resource "aws_instance" "stock-rl-ec2-instance" {
+  ami                         = "will wait to fill this in"
+  instance_type               = "will wait to fill this in. I suspect we will need a large server"
+  availability_zone           = "us-east-1a"
+  key_name                    = "stock-rl-key-pair"
+  subnet_id                   = aws_subnet.stock-rl-public-subnet.id
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.stock-rl-security-group.id]
+  monitoring                  = true
+  network_interface {
+    network_interface_id = aws_network_interface.stock-rl-network-interface.id
+    device_index         = 0
+  }
+  user_data = <<-EOF
+  #! /bin/bash
+    sudo apt update -y
+    will fill in later once we know exactly what we need
+    EOF
+
+  tags = {
+    Name = "stock-rl-ec2-instance"
+  }
+}
 
 # Create an SNS topic to send notifications when trades are made
 # Can wait to set this up until we discuss further
