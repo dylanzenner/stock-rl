@@ -1,5 +1,5 @@
 terraform {
-  
+
   cloud {
     organization = "cpe-800"
 
@@ -19,7 +19,6 @@ terraform {
 # Configure the AWS Provider
 provider "aws" {
   region = "us-east-1"
-  shared_credentials_files = ["infrastructure/credentials.txt"]
 }
 
 # Create a VPC
