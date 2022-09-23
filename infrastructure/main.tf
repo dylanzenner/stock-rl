@@ -1,4 +1,13 @@
 terraform {
+  
+  cloud {
+    organization = "cpe-800"
+
+    workspaces {
+      name = "cpe-800-project"
+    }
+  }
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
