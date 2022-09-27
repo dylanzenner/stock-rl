@@ -12,13 +12,15 @@ terraform {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 4.0"
-    }
+          }
   }
 }
+
 
 # Configure the AWS Provider
 provider "aws" {
   region = "us-east-1"
+
 }
 
 # Create a VPC
@@ -131,30 +133,30 @@ resource "aws_eip" "stock-rl-eip" {
   ]
 }
 
-# Create an EC2 Instance
-resource "aws_instance" "stock-rl-ec2-instance" {
-  ami                         = "ami-026b57f3c383c2eec"
-  instance_type               = "t2.micro"
-  availability_zone           = "us-east-1a"
-  key_name                    = "stock-rl-key-pair"
-  subnet_id                   = aws_subnet.stock-rl-public-subnet.id
-  associate_public_ip_address = true
-  vpc_security_group_ids      = [aws_security_group.stock-rl-security-group.id]
-  monitoring                  = true
-  network_interface {
-    network_interface_id = aws_network_interface.stock-rl-network-interface.id
-    device_index         = 0
-  }
-  # user_data = <<-EOF
-  # #! /bin/bash
-  #   sudo apt update -y
-  #   will fill in later once we know exactly what we need
-  #   EOF
+# # Create an EC2 Instance
+# resource "aws_instance" "stock-rl-ec2-instance" {
+#   ami                         = "ami-026b57f3c383c2eec"
+#   instance_type               = "t2.micro"
+#   availability_zone           = "us-east-1a"
+#   key_name                    = "stock-rl-key-pair"
+#   subnet_id                   = aws_subnet.stock-rl-public-subnet.id
+#   associate_public_ip_address = true
+#   vpc_security_group_ids      = [aws_security_group.stock-rl-security-group.id]
+#   monitoring                  = true
+#   network_interface {
+#     network_interface_id = aws_network_interface.stock-rl-network-interface.id
+#     device_index         = 0
+#   }
+#   # user_data = <<-EOF
+#   # #! /bin/bash
+#   #   sudo apt update -y
+#   #   will fill in later once we know exactly what we need
+#   #   EOF
 
-  tags = {
-    Name = "stock-rl-ec2-instance"
-  }
-}
+#   tags = {
+#     Name = "stock-rl-ec2-instance"
+#   }
+# }
 
 # # Create an SNS topic to send notifications when trades are made
 # resource "aws_sns_topic" "stock-rl-sns-topic" {
