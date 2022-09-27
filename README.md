@@ -34,7 +34,12 @@ This repo contains our project for CPE 800
 
  - <details>
     <summary style="font-size:larger;">Step 2: Set up CICD Pipeline</summary>
-    - jdnfjdn
     <br>
-    - djhfjhd
+    For this project a CICD pipeline is set up to automatically deploy and teardown the AWS infrastructure based on when the stock market opens and closes. Below are the steps to set up the CICD pipeline:
+    <br>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+
+    - You can follow the steps outlined [here](https://learn.hashicorp.com/tutorials/terraform/github-actions?in=terraform/automation) and tailor it to your needs. 
+ 
+      
     </details>
