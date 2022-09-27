@@ -2,7 +2,7 @@ name: 'Terraform'
 
 on:
   schedule:
-    - cron: "30 10 * * 1-5"
+    - cron: "0 22 * * 1-5"
 
 jobs:
   terraform:
