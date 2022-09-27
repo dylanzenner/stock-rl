@@ -8,7 +8,7 @@ This repo contains our project for CPE 800
  - <details>
     <summary style="font-size:larger;">Step 1: Set up AWS Infrastructure</summary>
     <br>
-    The infrastructure for this project is contained in the <strong style="color:#38bdf8">main.tf</strong> file. You can change this file to fit your specific architetcture needs but, if you just want to deploy the project for yourself there are some changes you will have to make. Those changes are as follows:
+    The infrastructure for this project is contained in the <strong style="color:lightblue">main.tf</strong> file. You can change this file to fit your specific architetcture needs but, if you just want to deploy the project for yourself there are some changes you will have to make. Those changes are as follows:
     <br>
     &nbsp;&nbsp;&nbsp;&nbsp;
 
