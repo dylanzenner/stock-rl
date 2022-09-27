@@ -1,4 +1,4 @@
-name: 'Terraform'
+name: 'Terraform Up'
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
 
 jobs:
   terraform:
-    name: 'Terraform'
+    name: 'Terraform Up'
     runs-on: ubuntu-latest
 
     defaults:
