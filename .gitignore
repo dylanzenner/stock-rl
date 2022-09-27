@@ -167,3 +167,10 @@ terraform.tfstate
 
 # credentials
 credentials.txt
+
+#latex
+mid-semester-report.aux
+mid-semester-report.fdb_latexmk
+mid-semester-report.fls
+mid-semester-report.log
+mid-semester-report.synctex.gz
