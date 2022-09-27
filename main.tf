@@ -133,8 +133,8 @@ resource "aws_eip" "stock-rl-eip" {
 
 # Create an EC2 Instance
 resource "aws_instance" "stock-rl-ec2-instance" {
-  ami                         = "will wait to fill this in"
-  instance_type               = "will wait to fill this in. I suspect we will need a large server"
+  ami                         = "ami-026b57f3c383c2eec"
+  instance_type               = "t2.micro"
   availability_zone           = "us-east-1a"
   key_name                    = "stock-rl-key-pair"
   subnet_id                   = aws_subnet.stock-rl-public-subnet.id
@@ -145,28 +145,28 @@ resource "aws_instance" "stock-rl-ec2-instance" {
     network_interface_id = aws_network_interface.stock-rl-network-interface.id
     device_index         = 0
   }
-  user_data = <<-EOF
-  #! /bin/bash
-    sudo apt update -y
-    will fill in later once we know exactly what we need
-    EOF
+  # user_data = <<-EOF
+  # #! /bin/bash
+  #   sudo apt update -y
+  #   will fill in later once we know exactly what we need
+  #   EOF
 
   tags = {
     Name = "stock-rl-ec2-instance"
   }
 }
 
-# Create an SNS topic to send notifications when trades are made
-resource "aws_sns_topic" "stock-rl-sns-topic" {
-  name = "stock-rl-sns-topic"
-}
+# # Create an SNS topic to send notifications when trades are made
+# resource "aws_sns_topic" "stock-rl-sns-topic" {
+#   name = "stock-rl-sns-topic"
+# }
 
-# Create an SNS topic subscription to send notifications to my email
-resource "aws_sns_topic_subscription" "stock-rl-sns-topic-subscription" {
-  topic_arn = aws_sns_topic.stock-rl-sns-topic.arn
-  protocol  = "email"
-  endpoint  = "your email address"
-  depends_on = [
-    aws_sns_topic.stock-rl-sns-topic
-  ]
-}
+# # Create an SNS topic subscription to send notifications to my email
+# resource "aws_sns_topic_subscription" "stock-rl-sns-topic-subscription" {
+#   topic_arn = aws_sns_topic.stock-rl-sns-topic.arn
+#   protocol  = "email"
+#   endpoint  = "your email address"
+#   depends_on = [
+#     aws_sns_topic.stock-rl-sns-topic
+#   ]
+# }
