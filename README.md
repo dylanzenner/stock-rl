@@ -4,6 +4,37 @@ This repo contains our project for CPE 800
 # About
 
 # Steps for Replication
- - ### Step 1: Set up AWS Infrastructure
-    - One of the main talking points about our project is that we actual use the algorithms we make to 
- - ### Step 2: Set up CICD Pipeline
+
+ - <details>
+    <summary style="font-size:larger;">Step 1: Set up AWS Infrastructure</summary>
+    <br>
+    The infrastructure for this project is contained in the <strong>main.tf</strong> file. You can change this file to fit your specific architetcture needs but, if you just want to deploy the project for yourself they are some change you will have to make. Those changes are as follows:
+    <br>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+
+    - Uncomment lines 90 - 97.
+    <br>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+
+    - Add your IP address to line 96
+    <br>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    
+    - Create your own key pair in AWS and replace the   
+      keypair name on line 139 with the name of the 
+      keypair you just created
+    <br>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+
+    - Add your email address to line 168
+
+    </details>
+
+<br>
+
+ - <details>
+    <summary style="font-size:larger;">Step 2: Set up CICD Pipeline</summary>
+    - jdnfjdn
+    <br>
+    - djhfjhd
+    </details>
