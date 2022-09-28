@@ -2,7 +2,7 @@ name: 'Terraform Down'
 
 on:
   schedule:
-    - cron: "35 22 * * 1-5"
+    - cron: "0 21 * * 1-5"
 
 jobs:
   terraform:
@@ -24,7 +24,10 @@ jobs:
         cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
     
     - name: Terraform Init
-      run: terraform init 
+      run: terraform init
+
+    - name: Terraform Format
+      run: terraform fmt 
     
     - name: Terraform Destroy
-      run: terraform destroy 
+      run: terraform destroy -auto-approve -input=false
