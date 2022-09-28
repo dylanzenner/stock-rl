@@ -1,3 +1,5 @@
+[![Terraform Up](https://github.com/dylanzenner/stock-rl/actions/workflows/terraform-up.yml/badge.svg)](https://github.com/dylanzenner/stock-rl/actions/workflows/terraform-up.yml) [![Terraform Down](https://github.com/dylanzenner/stock-rl/actions/workflows/terraform-down.yml/badge.svg)](https://github.com/dylanzenner/stock-rl/actions/workflows/terraform-down.yml)
+
 # stock-rl
 This repo contains our project for CPE 800
 
