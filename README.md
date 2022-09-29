@@ -4,6 +4,9 @@
 This repo contains our project for CPE 800
 
 # About
+Smart Trader is an automated trading bot utilizing Reinforcement Learning to make trades...
+
+![](diagrams/smart-trader-architecture.png)
 
 # Steps for Replication
 
