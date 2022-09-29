@@ -37,11 +37,11 @@ resource "aws_internet_gateway" "stock-rl-igw" {
   }
 }
 
-# Create an Internet Gateway Attachment
-resource "aws_internet_gateway_attachment" "stock-rl-igw-attachment" {
-  vpc_id              = aws_vpc.stock-rl-vpc.id
-  internet_gateway_id = aws_internet_gateway.stock-rl-igw.id
-}
+# # Create an Internet Gateway Attachment
+# resource "aws_internet_gateway_attachment" "stock-rl-igw-attachment" {
+#   vpc_id              = aws_vpc.stock-rl-vpc.id
+#   internet_gateway_id = aws_internet_gateway.stock-rl-igw.id
+# }
 
 # Create a Public Subnet
 resource "aws_subnet" "stock-rl-public-subnet" {
