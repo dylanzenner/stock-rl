@@ -4,12 +4,11 @@ import gym
 from gym import spaces
 import pandas as pd
 import numpy as np
+import sys
 
-
-MAX_ACCOUNT_BALANCE = 2147483647
-MAX_NUM_SHARES = 2147483647
+MAX_ACCOUNT_BALANCE = sys.maxsize
+MAX_NUM_SHARES = sys.maxsize
 MAX_SHARE_PRICE = 1000
-MAX_OPEN_POSITIONS = 5
 MAX_STEPS = 20000
 
 INITIAL_ACCOUNT_BALANCE = 10000
@@ -26,8 +25,9 @@ class StockTradingEnv(gym.Env):
         self.reward_range = (0, MAX_ACCOUNT_BALANCE)
 
         # Actions for BUY, SELL, HOLD
-        self.action_space = spaces.Box(
-            low=np.array([0, 0]), high=np.array([3, 1]), dtype=np.float16)
+        self.action_space = spaces.Discrete(3)
+        # self.action_space = spaces.Box(
+        #     low=np.array([0, 0]), high=np.array([3, 1]), dtype=np.float16)
 
         # We need to look at the past 14 data points to determine the RSI value
         self.observation_space = spaces.Box(
@@ -37,15 +37,15 @@ class StockTradingEnv(gym.Env):
         # Get the stock data points for the last 5 Minutes
         frame = np.array([
             self.df.loc[self.current_step: self.current_step +
-                        5, 'Open'].values / MAX_SHARE_PRICE,
+                        5, 'open'].values / MAX_SHARE_PRICE,
             self.df.loc[self.current_step: self.current_step +
-                        5, 'High'].values / MAX_SHARE_PRICE,
+                        5, 'high'].values / MAX_SHARE_PRICE,
             self.df.loc[self.current_step: self.current_step +
-                        5, 'Low'].values / MAX_SHARE_PRICE,
+                        5, 'low'].values / MAX_SHARE_PRICE,
             self.df.loc[self.current_step: self.current_step +
-                        5, 'Close'].values / MAX_SHARE_PRICE,
+                        5, 'close'].values / MAX_SHARE_PRICE,
             self.df.loc[self.current_step: self.current_step +
-                        5, 'Volume'].values / MAX_NUM_SHARES,
+                        5, 'rsi'].values / 5,
         ])
         print(np.shape(frame))
         print('frame: {}'.format(frame))
@@ -67,13 +67,13 @@ class StockTradingEnv(gym.Env):
     def _take_action(self, action):
         # determine the RSI value if rsi < 30 -> sell if rsi > 70 -> buy else hold
         # rsi_value = self.df.loc[self.current_step, "RSI"]
-        current_price = self.df.loc[self.current_step, 'Open']
+        current_price = self.df.loc[self.current_step, 'rsi']
 
         action_type = action[0]
         print('ACTION TYPe :{}'.format(action_type))
         amount = action[1]
 
-        if action_type < 1:
+        if action_type == 0:
             # Buy amount 10% of balance in shares
             total_possible = int(self.balance / current_price)
             shares_bought = int(total_possible * amount)
@@ -85,7 +85,7 @@ class StockTradingEnv(gym.Env):
                 prev_cost + additional_cost) / (self.shares_held + shares_bought)
             self.shares_held += shares_bought
 
-        elif action_type < 2:
+        elif action_type == 1:
             # Sell amount 10% of shares held
             shares_sold = int(self.shares_held * amount)
             self.balance += shares_sold * current_price
@@ -107,7 +107,7 @@ class StockTradingEnv(gym.Env):
 
         self.current_step += 1
 
-        if self.current_step > len(self.df.loc[:, 'Open'].values) - 6:
+        if self.current_step > len(self.df.loc[:, 'rsi'].values) - 6:
             self.current_step = 0
 
         delay_modifier = (self.current_step / MAX_STEPS)
@@ -131,7 +131,7 @@ class StockTradingEnv(gym.Env):
 
         # Set the current step to a random point within the data frame
         self.current_step = random.randint(
-            0, len(self.df.loc[:, 'Open'].values) - 6)
+            0, len(self.df.loc[:, 'rsi'].values) - 6)
 
         return self._next_observation()
 
