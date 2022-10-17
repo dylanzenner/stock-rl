@@ -3,7 +3,10 @@
 # keys required
 from alpaca_trade_api.common import URL
 from alpaca_trade_api.stream import Stream
+from stable_baselines3 import PPO
 
+# just toying around with how to stream in the stock data. Will have to figure out how to append the RSI values to the responses 
+# and then pass it to the model for predictions
 async def trade_callback(t):
     print('trade', t)
 
@@ -20,6 +23,8 @@ stream = Stream('PK04UHV69AF2QULV4REU',
 
 # subscribing to event
 stream.subscribe_crypto_bars(print_crypto_trade, 'BTCUSD')
+
+model = PPO.load('trained_model')
 
 stream.run()
 
