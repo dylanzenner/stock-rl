@@ -25,9 +25,9 @@ class StockTradingEnv(gym.Env):
         self.reward_range = (0, MAX_ACCOUNT_BALANCE)
 
         # Actions for BUY, SELL, HOLD
-        self.action_space = spaces.Discrete(3)
-        # self.action_space = spaces.Box(
-        #     low=np.array([0, 0]), high=np.array([3, 1]), dtype=np.float16)
+        # self.action_space = spaces.Discrete(3)
+        self.action_space = spaces.Box(
+            low=np.array([0, 0]), high=np.array([3, 1]), dtype=np.float16)
 
         # We need to look at the past 14 data points to determine the RSI value
         self.observation_space = spaces.Box(
@@ -67,15 +67,16 @@ class StockTradingEnv(gym.Env):
     def _take_action(self, action):
         # determine the RSI value if rsi < 30 -> sell if rsi > 70 -> buy else hold
         # rsi_value = self.df.loc[self.current_step, "RSI"]
-        current_price = self.df.loc[self.current_step, 'rsi']
+        current_price = self.df.loc[self.current_step, "close"]
+        rsi = self.df.loc[self.current_step, 'rsi']
 
         action_type = action[0]
         print('ACTION TYPe :{}'.format(action_type))
         amount = action[1]
 
-        if action_type == 0:
+        if action_type < 1 and rsi < 30:
             # Buy amount 10% of balance in shares
-            total_possible = int(self.balance / current_price)
+            total_possible = int((self.balance * .10) / current_price)
             shares_bought = int(total_possible * amount)
             prev_cost = self.cost_basis * self.shares_held
             additional_cost = shares_bought * current_price
@@ -85,9 +86,9 @@ class StockTradingEnv(gym.Env):
                 prev_cost + additional_cost) / (self.shares_held + shares_bought)
             self.shares_held += shares_bought
 
-        elif action_type == 1:
+        elif action_type < 2 and rsi > 70:
             # Sell amount 10% of shares held
-            shares_sold = int(self.shares_held * amount)
+            shares_sold = int((self.shares_held * .10) * amount)
             self.balance += shares_sold * current_price
             self.shares_held -= shares_sold
             self.total_shares_sold += shares_sold
