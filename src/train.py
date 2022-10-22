@@ -21,7 +21,7 @@ stock_client = StockHistoricalDataClient(key_id, secret_key)
 # get 1 years worth data on Nvidia by the day. Could also use TimeFrame.Day for daily data
 request_params = StockBarsRequest(symbol_or_symbols=['NVDA'],
                                   timeframe=TimeFrame.Minute,
-                                  start=datetime(2020, 1, 1),
+                                  start=datetime(2015, 1, 1),
                                   end=datetime(2021, 1, 1)
                                   )
 
