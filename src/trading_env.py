@@ -5,13 +5,7 @@ from gym import spaces
 import pandas as pd
 import numpy as np
 import sys
-
-MAX_ACCOUNT_BALANCE = sys.maxsize
-MAX_NUM_SHARES = sys.maxsize
-MAX_SHARE_PRICE = 1000
-MAX_STEPS = 20000
-
-INITIAL_ACCOUNT_BALANCE = 10000
+import matplotlib.pyplot as plt
 
 
 class StockTradingEnv(gym.Env):
@@ -21,128 +15,139 @@ class StockTradingEnv(gym.Env):
     def __init__(self, df):
         super(StockTradingEnv, self).__init__()
 
+        # self.seed()
         self.df = df
-        self.reward_range = (0, MAX_ACCOUNT_BALANCE)
+        self.reward_range = (-sys.maxsize, sys.maxsize)
+        self.balance = 10000
+        self.trades_made = 0
+        self.stock_held = 0
+        self.net_worth = 0
+
+        # render profit vs reward
+        self.graph_reward = []
+        self.graph_profit = []
+        self.graph_steps = []
+
 
         # Actions for BUY, SELL, HOLD
-        # self.action_space = spaces.Discrete(3)
+        # using Box here because all 3 algorithms are able to work with the box action space
         self.action_space = spaces.Box(
-            low=np.array([0, 0]), high=np.array([3, 1]), dtype=np.float16)
+            low=-1, high=1, shape=(1, ),dtype='float32')
 
-        # We need to look at the past 14 data points to determine the RSI value
+        # the observation will be the last 5 data points
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(6, 6), dtype=np.float16)
+            low=0, high=1, shape=(6, 5),dtype='float32')
 
+
+    # Something is wrong here I keep getting the error:
+    # ValueError: all the input array dimensions for the concatenation axis must match exactly, but along dimension 1, the array at index 0 has size 2 and the array at index 1 has size 5
     def _next_observation(self):
-        # Get the stock data points for the last 5 Minutes
+        # observation will be the last 5 data points
         frame = np.array([
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'open'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'high'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'low'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'close'].values / MAX_SHARE_PRICE,
-            self.df.loc[self.current_step: self.current_step +
-                        5, 'rsi'].values / 5,
-        ])
-        print(np.shape(frame))
-        print('frame: {}'.format(frame))
+            self.df.loc[self.current_step - 4:self.current_step, 'open'],
+            self.df.loc[self.current_step - 4:self.current_step, 'close'],
+            self.df.loc[self.current_step - 4:self.current_step, 'rsi'],
+            self.df.loc[self.current_step - 4:self.current_step, 'sma'],
+            self.df.loc[self.current_step - 4:self.current_step, 'obv'],
 
-        
-        obs = np.append(frame, [[
-            self.balance / MAX_ACCOUNT_BALANCE,
-            self.max_net_worth / MAX_ACCOUNT_BALANCE,
-            self.shares_held / MAX_NUM_SHARES,
-            self.cost_basis / MAX_SHARE_PRICE,
-            self.total_shares_sold / MAX_NUM_SHARES,
-            self.total_sales_value / (MAX_NUM_SHARES * MAX_SHARE_PRICE),
-        ]], axis=0)
-        print(np.shape(obs))
-        
+        ])
+        print('--------------------')
+        print(frame)
+        print('--------------------')
+
+
+
+        # # Append account info
+        obs = np.append(frame, [[self.balance,
+                                 self.stock_held ,
+                                 self.trades_made,
+                                 self.net_worth, # place holder for now
+                                 self.balance, # place holder for now
+                                 ]],
+                                 axis=0
+                                )
+        print('--------------------')
+        print(obs)
+        print('--------------------')
 
         return obs
 
+        
+
     def _take_action(self, action):
-        # determine the RSI value if rsi < 30 -> sell if rsi > 70 -> buy else hold
-        # rsi_value = self.df.loc[self.current_step, "RSI"]
-        current_price = self.df.loc[self.current_step, "close"]
-        rsi = self.df.loc[self.current_step, 'rsi']
+        # either buy or sell a stock
+        current_price = random.uniform(
+            self.df.loc[self.current_step, 'open'],
+            self.df.loc[self.current_step, 'close'])
 
-        action_type = action[0]
-        print('ACTION TYPe :{}'.format(action_type))
-        amount = action[1]
+        if action[0] > 0:
+            # Buy 10% of balance in stock
+            stock_purchased = self.balance * .10 / current_price
+            
+        
+            if self.balance > stock_purchased * current_price:
+                self.balance -= stock_purchased * current_price
+                self.stock_held += stock_purchased
+                self.trades_made += stock_purchased
 
-        if action_type < 1 and rsi < 30:
-            # Buy amount 10% of balance in shares
-            total_possible = int((self.balance * .10) / current_price)
-            shares_bought = int(total_possible * amount)
-            prev_cost = self.cost_basis * self.shares_held
-            additional_cost = shares_bought * current_price
 
-            self.balance -= additional_cost
-            self.cost_basis = (
-                prev_cost + additional_cost) / (self.shares_held + shares_bought)
-            self.shares_held += shares_bought
+        if action[0] < 0:
+            # Sell 10% of stock held
+            stocks_sold = self.stock_held * .10
+            
+            self.trades_made += stocks_sold
+            self.balance += stocks_sold * current_price
+            self.stock_held -= stocks_sold
 
-        elif action_type < 2 and rsi > 70:
-            # Sell amount 10% of shares held
-            shares_sold = int((self.shares_held * .10) * amount)
-            self.balance += shares_sold * current_price
-            self.shares_held -= shares_sold
-            self.total_shares_sold += shares_sold
-            self.total_sales_value += shares_sold * current_price
+        # self.net_worth = self.balance + self.stock_held_held * current_price
 
-        self.net_worth = self.balance + self.shares_held * current_price
-
-        if self.net_worth > self.max_net_worth:
-            self.max_net_worth = self.net_worth
-
-        if self.shares_held == 0:
-            self.cost_basis = 0
+        
 
     def step(self, action):
         # Execute one time step within the environment
         self._take_action(action)
-
+        self.graph_steps.append(self.current_step)
         self.current_step += 1
+        
 
-        if self.current_step > len(self.df.loc[:, 'rsi'].values) - 6:
+        # if the current step ever goes above the length of the dataframe, then reset to 0
+        if self.current_step > len(self.df.loc[:, 'open'].values) - 5:
             self.current_step = 0
-
-        delay_modifier = (self.current_step / MAX_STEPS)
-
-        reward = self.balance * delay_modifier
+        
+        reward = self.balance
+        print('reward: {}'.format(reward))
+        self.graph_reward.append(reward)
+        print('graph_reward: {}'.format(self.graph_reward))
         done = self.net_worth <= 0
 
         obs = self._next_observation()
-
         return obs, reward, done, {}
 
     def reset(self):
-        # Reset the state of the environment to an initial state
-        self.balance = INITIAL_ACCOUNT_BALANCE
-        self.net_worth = INITIAL_ACCOUNT_BALANCE
-        self.max_net_worth = INITIAL_ACCOUNT_BALANCE
-        self.shares_held = 0
-        self.cost_basis = 0
-        self.total_shares_sold = 0
-        self.total_sales_value = 0
+        self.balance = 10000
+        self.trades_made = 0
+        self.stock_held = 0
+        self.graph_reward = []
+        self.graph_profit = []
+        self.graph_steps = []
 
-        # Set the current step to a random point within the data frame
-        self.current_step = random.randint(
-            0, len(self.df.loc[:, 'rsi'].values) - 6)
+        # set the current step to the first point in the dataframe
+        self.current_step = random.randint(0, len(self.df.loc[:, 'open'].values) - 5)
+
+
 
         return self._next_observation()
+        
+
+        
 
     def render(self, mode='human', close=False):
-        # Render the environment to the screen
-        profit = self.net_worth - INITIAL_ACCOUNT_BALANCE
+        print('-------------------------------')
+        print('Balance: {}'.format(self.balance))
+        print('Stocks held: {}'.format(self.stock_held))
+        print('Trades made: {}'.format(self.trades_made))
+        print('Reward: {}'.format(self.graph_reward))
+        
 
-        print(f'Step: {self.current_step}')
-        print(f'Current Balance: {self.balance}')
-        print(f'Current Number of Shares Held: {self.shares_held} (Total sold: {self.total_shares_sold})')
 
-        print(f'Net worth: {self.net_worth} (Max net worth: {self.max_net_worth})')
-        print(f'Profit: {profit}')
+        
