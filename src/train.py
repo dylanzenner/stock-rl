@@ -4,66 +4,114 @@ import pandas_ta as ta
 import pandas as pd
 from stable_baselines3.a2c import MlpPolicy
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3 import PPO, TD3
-from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
+from stable_baselines3 import PPO, TD3, A2C
+from stable_baselines3.common.noise import (
+    NormalActionNoise,
+    OrnsteinUhlenbeckActionNoise,
+)
 from trading_env import StockTradingEnv
 from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 from datetime import datetime
 
-# will have to hide these for production
-key_id = 'PK04UHV69AF2QULV4REU'
-secret_key = '7g1qUN7qjsfW3U6oSccYYtHyQdoewJ12ANDQmSKd'
-endpoint = 'https://paper-api.alpaca.markets'
 
-stock_client = StockHistoricalDataClient(key_id, secret_key)
+class SmartTrader:
+    def __init__(self, api_key, secret_key, endpoint):
+        self.api_key = api_key
+        self.secret_key = secret_key
+        self.endpoint = endpoint
 
-# get 1 years worth data on Nvidia by the day. Could also use TimeFrame.Day for daily data
-request_params = StockBarsRequest(symbol_or_symbols=['NVDA'],
-                                  timeframe=TimeFrame.Day,
-                                  start=datetime(2020, 1, 1),
-                                  end=datetime(2021, 1, 1)
-                                  )
+    def get_data(self, symbol, timeframe, start_date, end_date):
+        stock_client = StockHistoricalDataClient(self.api_key, self.secret_key)
+        request_params = StockBarsRequest(
+            symbol_or_symbols=[symbol],
+            timeframe=timeframe,
+            start=start_date,
+            end=end_date,
+        )
+        bars = stock_client.get_stock_bars(request_params)
+        df = bars.df.reset_index(level=["symbol", "timestamp"])
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        df["date"] = df["timestamp"].dt.date
+        df = df.drop(columns=["timestamp"])
+        df["date"] = pd.to_datetime(df["date"])
+        df.set_index("date")
+        df["rsi"] = df.ta.rsi(
+            close=df["close"], length=14, scalar=None, drift=None, offset=None
+        )
+        df["sma"] = df.ta.sma(
+            close=df["close"], length=20, scalar=None, drift=None, offset=None
+        )
+        df["obv"] = df.ta.obv(
+            close=df["close"], volume=df["volume"], scalar=None, drift=None, offset=None
+        )
+        df.fillna(0, inplace=True)
 
-bars = stock_client.get_stock_bars(request_params)
+        return df
 
-# convert to pandas dataframe
-df = bars.df.reset_index(level=['symbol', 'timestamp'])
-df['timestamp'] = pd.to_datetime(df['timestamp'])
-df['new_date_column'] = df['timestamp'].dt.date
-df = df.drop(columns=['timestamp'])
-df['new_date_column'] = pd.to_datetime(df['new_date_column'])
-df.set_index('new_date_column')
-df['rsi'] = df.ta.rsi(close=df['close'], length=14, scalar=None, drift=None, offset=None)
-df['sma'] = df.ta.sma(close=df['close'], length=12, scalar=None, drift=None, offset=None)
-df['obv'] = df.ta.obv(close=df['close'], volume=df['volume'], scalar=None, drift=None, offset=None)
-df.fillna(0, inplace=True)
-print(df.columns)
+    def train_and_run_model(self, df, model, total_timesteps, log_interval, ensemble):
+        if ensemble == True:
+            pass
+        else:
+            if model in (PPO, A2C):
+                if model == PPO:
+                    name_var = "PPO"
+                else:
+                    name_var = "A2C"
+                env = DummyVecEnv([lambda: StockTradingEnv(df)])
+                model = model("MlpPolicy", env, verbose=1)
+                model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
+                model.save(
+                    "trained_model_{}_{}".format(
+                        name_var, datetime.now().strftime("%d-%m-%y")
+                    )
+                )
 
-# # Set up the environment
-env = DummyVecEnv([lambda: StockTradingEnv(df)])
+                obs = env.reset()
+                for i in range(20):
+                    print("---------------------------")
+                    action, _states = model.predict(obs)
+                    obs, rewards, done, info = env.step(action)
+                    env.render()
 
-# print(env.action_space)
+            else:
+                env = DummyVecEnv([lambda: StockTradingEnv(df)])
+                n_actions = env.action_space.shape[-1]
+                action_noise = NormalActionNoise(
+                    mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions)
+                )
+                model = model("MlpPolicy", env, action_noise=action_noise, verbose=1)
+                model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
+                model.save(
+                    "trained_model_TD3_{}".format(datetime.now().strftime("%d-%m-%y"))
+                )
 
-# # # The noise objects for TD3
-# # n_actions = env.action_space.shape[-1]
-# # action_noise = NormalActionNoise(mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions))
+                obs = env.reset()
+                for i in range(4):
+                    print("---------------------------")
+                    action, _states = model.predict(obs)
+                    obs, rewards, done, info = env.step(action)
+                    env.render()
 
 
-# # # train the model
-model = PPO("MlpPolicy", env, verbose=1)
-# # model = TD3("MlpPolicy", env, action_noise=action_noise, verbose=1)
-model.learn(total_timesteps=10000, log_interval=10)
+if __name__ == "__main__":
+    # initiate the class
+    trader = SmartTrader(
+        api_key="PK04UHV69AF2QULV4REU",
+        secret_key="7g1qUN7qjsfW3U6oSccYYtHyQdoewJ12ANDQmSKd",
+        endpoint="https://paper-api.alpaca.markets",
+    )
 
-# # # Visualize how the model performs
-obs = env.reset()
-for i in range(2000):
-    print('---------------------------')
-    action, _states = model.predict(obs)
-    obs, rewards, done, info = env.step(action)
-    env.render()
+    # get the data
+    df = trader.get_data(
+        symbol="NVDA",
+        timeframe=TimeFrame.Day,
+        start_date=datetime(2020, 1, 1),
+        end_date=datetime(2021, 1, 1),
+    )
 
-# # # save the model so we can call it from our main file which will be our entry point for our bot
-# # model.save('trained_model')
-
+    # train and run the model
+    trader.train_and_run_model(
+        df=df, model=TD3, total_timesteps=1, log_interval=10, ensemble=False
+    )
