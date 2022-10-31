@@ -33,7 +33,7 @@ class SmartTrader:
     def get_data(self, symbol, timeframe, start_date, end_date):
         stock_client = StockHistoricalDataClient(self.api_key, self.secret_key)
         request_params = StockBarsRequest(
-            symbol_or_symbols=[*symbol] if type(symbol) == list else [symbol],
+            symbol_or_symbols=[*symbol] if type(symbol) == type([]) else [symbol],
             timeframe=timeframe,
             start=start_date,
             end=end_date,
@@ -147,7 +147,7 @@ class SmartTrader:
                     env.render()
 
     def run_model(self, model_names=None, ensemble=None, tickers=None):
-        if ensemble is None:
+        if ensemble is not None:
             pass
 
         else:
@@ -182,7 +182,7 @@ class SmartTrader:
 
                     if action[0][0] < 0:
                         # sell 10% of stock
-                        percentage_to_sell = self.api.get_position(q.symbol).qty * 0.1
+                        percentage_to_sell = float(self.api.get_position(q.symbol).qty) * 0.1
                         print('selling stock')
                         self.api.submit_order(
                             symbol=q.symbol,
@@ -191,6 +191,7 @@ class SmartTrader:
                             type="market",
                             time_in_force="gtc",
                         )
+                        
 
 
 
@@ -210,7 +211,7 @@ class SmartTrader:
                             print('Not enough cash to buy stock')
 
 
-            self.stream.subscribe_crypto_bars(print_crypto_trade, tickers)
+            self.stream.subscribe_crypto_bars(print_crypto_trade, *tickers)
 
             self.stream.run()
 
@@ -261,4 +262,4 @@ if __name__ == "__main__":
     )
 
     # run the model live
-    trader.run_model(tickers="BTCUSD")
+    trader.run_model(tickers=["BTCUSD"])
