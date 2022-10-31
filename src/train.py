@@ -146,11 +146,16 @@ class SmartTrader:
                         obs, rewards, done, info = env.step(action)
                     env.render()
 
-    def run_model(self, model_names=None, ensemble=None, tickers=None):
+    def run_model(self, model_names, ensemble=None, tickers=None):
         if ensemble is not None:
-            pass
+            for model in model_names:
+                if "PPO" in model:
+                    model_1 = PPO.load(model)
+                elif "TD3" in model:
+                    model_2 = TD3.load(model)
+                else:
+                    model_3 = A2C.load(model)
 
-        else:
             async def print_crypto_trade(q):
                 account = self.api.get_account()
                 cash = float(account.cash)
@@ -175,15 +180,20 @@ class SmartTrader:
                 df.fillna(0, inplace=True)
                 print(self.close_values)
                 print(len(self.close_values))
-                model = PPO.load("trained_model_PPO_30-10-22")
 
                 if len(self.data) >= 14:
-                    action = model.predict(df.tail(6))
+                    action = (
+                        model_1.predict(df.tail(6))[0]
+                        + model_2.predict(df.tail(6))[0] / 2
+                        # + model_3.predict(df.tail(6))[0] / 3
+                    )
 
                     if action[0][0] < 0:
                         # sell 10% of stock
-                        percentage_to_sell = float(self.api.get_position(q.symbol).qty) * 0.1
-                        print('selling stock')
+                        percentage_to_sell = (
+                            float(self.api.get_position(q.symbol).qty) * 0.1
+                        )
+                        print("selling stock")
                         self.api.submit_order(
                             symbol=q.symbol,
                             qty=percentage_to_sell,
@@ -191,15 +201,12 @@ class SmartTrader:
                             type="market",
                             time_in_force="gtc",
                         )
-                        
-
-
 
                     if action[0][0] > 0:
                         # buy 10% of cash balance in stock
                         amount = (cash * 0.10) / q.close
                         if cash > amount * q.close:
-                            print('buying stock')
+                            print("buying stock")
                             self.api.submit_order(
                                 symbol=q.symbol,
                                 qty=amount,
@@ -208,8 +215,78 @@ class SmartTrader:
                                 time_in_force="gtc",
                             )
                         else:
-                            print('Not enough cash to buy stock')
+                            print("Not enough cash to buy stock")
 
+            self.stream.subscribe_crypto_bars(print_crypto_trade, *tickers)
+
+            self.stream.run()
+
+        else:
+
+            async def print_crypto_trade(q):
+                account = self.api.get_account()
+                cash = float(account.cash)
+                print(account)
+
+                self.close_values.append(q.close)
+                self.volume_values.append(q.volume)
+                self.data.append(
+                    {
+                        "open": q.open,
+                        "close": q.close,
+                        "rsi": TA.RSI(np.array(self.close_values), 14)[-1],
+                        "sma": TA.SMA(np.array(self.close_values), 12)[-1],
+                        "obv": TA.OBV(
+                            np.array(self.close_values), np.array(self.volume_values)
+                        )[-1],
+                    }
+                )
+
+                df = pd.DataFrame(self.data)
+                print("columns: {}".format(df.columns))
+                df.fillna(0, inplace=True)
+                print(self.close_values)
+                print(len(self.close_values))
+
+                # determine which model to use
+                if "PPO" in model_names:
+                    model = PPO.load(model_names[0])
+                elif "TD3" in model_names:
+                    model = TD3.load(model_names[0])
+                else:
+                    model = A2C.load(model_names[0])
+
+                if len(self.data) >= 14:
+                    action = model.predict(df.tail(6))
+
+                    if action[0][0] < 0:
+                        # sell 10% of stock
+                        percentage_to_sell = (
+                            float(self.api.get_position(q.symbol).qty) * 0.1
+                        )
+                        print("selling stock")
+                        self.api.submit_order(
+                            symbol=q.symbol,
+                            qty=percentage_to_sell,
+                            side="sell",
+                            type="market",
+                            time_in_force="gtc",
+                        )
+
+                    if action[0][0] > 0:
+                        # buy 10% of cash balance in stock
+                        amount = (cash * 0.10) / q.close
+                        if cash > amount * q.close:
+                            print("buying stock")
+                            self.api.submit_order(
+                                symbol=q.symbol,
+                                qty=amount,
+                                side="buy",
+                                type="market",
+                                time_in_force="gtc",
+                            )
+                        else:
+                            print("Not enough cash to buy stock")
 
             self.stream.subscribe_crypto_bars(print_crypto_trade, *tickers)
 
@@ -223,7 +300,11 @@ if __name__ == "__main__":
         api_key="PKP1ETYE7CJ159NMRJ9S",
         secret_key="teabIy9nt6drve1VXVmudbsb2TtLSSfNMkhZuIi9",
         endpoint="https://paper-api.alpaca.markets",
-        api = tradeapi.REST(key_id='PKP1ETYE7CJ159NMRJ9S', secret_key='teabIy9nt6drve1VXVmudbsb2TtLSSfNMkhZuIi9', base_url=URL('https://paper-api.alpaca.markets')),
+        api=tradeapi.REST(
+            key_id="PKP1ETYE7CJ159NMRJ9S",
+            secret_key="teabIy9nt6drve1VXVmudbsb2TtLSSfNMkhZuIi9",
+            base_url=URL("https://paper-api.alpaca.markets"),
+        ),
         stream=Stream(
             "PKP1ETYE7CJ159NMRJ9S",
             "teabIy9nt6drve1VXVmudbsb2TtLSSfNMkhZuIi9",
@@ -262,4 +343,5 @@ if __name__ == "__main__":
     )
 
     # run the model live
-    trader.run_model(tickers=["BTCUSD"])
+    # model name should be in the format of trained_model_{model_name}_{day-month-last 2 digits of the current year}
+    trader.run_model(model_names=["trained_model_PPO_31-10-22", "trained_model_A2C_30-10-22"], tickers=["BTCUSD"], ensemble=True)
