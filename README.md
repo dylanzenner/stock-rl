@@ -48,3 +48,24 @@ Smart Trader is an automated trading bot utilizing Reinforcement Learning to mak
  
       
     </details>
+
+<br>
+
+ - <details>
+    <summary style="font-size:larger;">Step 3: Upload Source Code</summary>
+    <br>
+    Before you can run Smart Trader you will have to upload the 'src' directory to an S3 bucket. You'll have to create an S3 bucket before hand
+    <br>
+ 
+      
+    </details>
+
+<br>
+
+ - <details>
+    <summary style="font-size:larger;">Step 4: See your Trader in Action</summary>
+    <br>
+    To visualize how your trader is doing you can log in to your Alpaca Markets account and head on over to the paper trading section.
+    <br>
+
+    </details>
