@@ -147,6 +147,7 @@ class SmartTrader:
                     env.render()
 
     def run_model(self, model_names, ensemble=None, tickers=None):
+        global model_1, model_2, model_3
         if ensemble is not None:
             for model in model_names:
                 if "PPO" in model:
@@ -184,11 +185,12 @@ class SmartTrader:
                 if len(self.data) >= 14:
                     action = (
                         model_1.predict(df.tail(6))[0]
-                        + model_2.predict(df.tail(6))[0] / 2
+                        + model_3.predict(df.tail(6))[0] / 2
                         # + model_3.predict(df.tail(6))[0] / 3
                     )
+                    print("ENSEMBLE ACTION: {}".format(action))
 
-                    if action[0][0] < 0:
+                    if action[0] < 0:
                         # sell 10% of stock
                         percentage_to_sell = (
                             float(self.api.get_position(q.symbol).qty) * 0.1
@@ -202,7 +204,7 @@ class SmartTrader:
                             time_in_force="gtc",
                         )
 
-                    if action[0][0] > 0:
+                    if action[0] > 0:
                         # buy 10% of cash balance in stock
                         amount = (cash * 0.10) / q.close
                         if cash > amount * q.close:
@@ -345,3 +347,4 @@ if __name__ == "__main__":
     # run the model live
     # model name should be in the format of trained_model_{model_name}_{day-month-last 2 digits of the current year}
     trader.run_model(model_names=["trained_model_PPO_31-10-22", "trained_model_A2C_30-10-22"], tickers=["BTCUSD"], ensemble=True)
+
