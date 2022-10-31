@@ -20,12 +20,16 @@ class StockTradingEnv(gym.Env):
         super(StockTradingEnv, self).__init__()
 
         self.reward_range = (-sys.maxsize, sys.maxsize)
-        self.balance = 10000
+        # we start with a 25,000 balance to avoid pattern day trading
+        self.balance = 10000        
         self.trades_made = 0
         self.stock_held = 0
         self.net_worth = 0
         self.profit = 0
         self.df = df
+        self.graph_balance = []
+        self.graph_reward = []
+        self.previous_net_worth = 0
 
         # Actions for BUY, SELL, HOLD
         # using Box here because all 3 algorithms are able to work with the box action space
@@ -49,9 +53,9 @@ class StockTradingEnv(gym.Env):
                 self.df.loc[self.current_step : self.current_step + 4, "obv"],
             ]
         ) 
-        print('-----------')
-        print(frame)
-        print('-----------')
+        # print('-----------')
+        # print(frame)
+        # print('-----------')
 
         # Append account info
         obs = np.append(
@@ -67,26 +71,32 @@ class StockTradingEnv(gym.Env):
             ],
             axis=0,
         )
-        print('-----------')
-        print(obs)
-        print('-----------')
+        # print('-----------')
+        # print(obs)
+        # print('-----------')
         return obs
 
     def _take_action(self, action):
-        print(self.df)
-
+        
         current_price = random.uniform(
             self.df.loc[self.current_step, "open"],
             self.df.loc[self.current_step, "close"],
         )
 
         if action[0] > 0 and self.df.loc[self.current_step, "rsi"] < 30:
-                # Buy 10% of balance in stock
+                # Buy 10% of balance in stock as long as we are spending at least $1
+                # This is due to alpaca markets requiring a minimum of $1 to be spent per trade
                 stock_purchased = self.balance * 0.10 / current_price
+                if stock_purchased >= 1:
+                    self.balance -= stock_purchased * current_price
+                    self.graph_balance.append(self.balance)
+                    self.stock_held += stock_purchased
+                    self.trades_made += stock_purchased
+                else:
+                    pass
 
-                self.balance -= stock_purchased * current_price
-                self.stock_held += stock_purchased
-                self.trades_made += stock_purchased
+
+                
             
 
         if action[0] < 0 and self.df.loc[self.current_step, "rsi"] > 70:
@@ -95,6 +105,7 @@ class StockTradingEnv(gym.Env):
 
                 self.trades_made += stocks_sold
                 self.balance += int(stocks_sold * current_price)
+                self.graph_balance.append(self.balance)
                 self.stock_held -= stocks_sold
             
 
@@ -104,6 +115,7 @@ class StockTradingEnv(gym.Env):
         
         # Execute one time step within the environment
         self._take_action(action)
+        self.graph_reward.append(self.current_step)
         self.current_step += 1
 
         # # if the current step ever goes above the length of the dataframe, then reset to 0
@@ -122,8 +134,7 @@ class StockTradingEnv(gym.Env):
         self.trades_made = 0
         self.stock_held = 0
         self.data = []
-        self.close_values = []
-        self.volume_values = []
+
 
 
         # set the current step to the first point in the dataframe
