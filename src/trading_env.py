@@ -11,7 +11,7 @@ import talib as TA
 
 
 class StockTradingEnv(gym.Env):
-    """A stock trading environment for interacting with the historical and live alpaca markets API"""
+    """A stock trading environment for training an agent to predict when to buy and sell stocks utilizing the Alpaca Markets API"""
 
     metadata = {"render.modes": ["human"]}
 

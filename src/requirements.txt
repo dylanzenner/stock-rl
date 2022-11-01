@@ -1,0 +1,8 @@
+stable-baselines3
+alpaca-py
+alpaca-trade-api
+pandas
+pandas-ta
+numpy
+gym
+matplotlib
