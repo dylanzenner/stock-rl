@@ -1,5 +1,5 @@
 from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3 import PPO, TD3, A2C
+from stable_baselines3 import PPO, TD3, A2C, DDPG
 from stable_baselines3.common.noise import (
     NormalActionNoise,
     OrnsteinUhlenbeckActionNoise,
@@ -16,6 +16,20 @@ import talib as TA
 import alpaca_trade_api as tradeapi
 import numpy as np
 import pandas as pd
+import boto3
+
+
+secret_client = boto3.client("secretsmanager")
+
+
+def retrieve_secret(secret_name, id=None, secret=None):
+    get_secret_value_response = secret_client.get_secret_value(SecretId=secret_name)
+    if id:
+        api_key = eval(get_secret_value_response["SecretString"])
+        return api_key["api_key"]
+    else:
+        api_secret = eval(get_secret_value_response["SecretString"])
+        return api_secret["api_secret"]
 
 
 class SmartTrader:
@@ -97,7 +111,7 @@ class SmartTrader:
 
                 obs = env.reset()
                 for i in range(2000):
-                    print("---------------------------")
+                    # print("---------------------------")
                     action = model_1.predict(obs)[0] + model_2.predict(obs)[0] / 2
                     obs, rewards, done, info = env.step(action)
                 env.render()
@@ -120,7 +134,7 @@ class SmartTrader:
                 if visualize:
                     obs = env.reset()
                     for i in range(2000):
-                        print("---------------------------")
+                        # print("---------------------------")
                         action, _states = model.predict(obs)
                         obs, rewards, done, info = env.step(action)
                     env.render()
@@ -131,7 +145,7 @@ class SmartTrader:
                 action_noise = OrnsteinUhlenbeckActionNoise(
                     mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions)
                 )
-                model = model("MlpPolicy", env, action_noise=action_noise, verbose=1)
+                model = model("MlpPolicy", env, verbose=1, action_noise=action_noise)
                 model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
                 model.save(
                     "trained_model_TD3_{}".format(datetime.now().strftime("%d-%m-%y"))
@@ -140,7 +154,7 @@ class SmartTrader:
                 if visualize:
                     obs = env.reset()
                     for i in range(4):
-                        print("---------------------------")
+                        # print("---------------------------")
                         action, _states = model.predict(obs)
                         print("Action: {}, States: {}".format(action, _states))
                         obs, rewards, done, info = env.step(action)
@@ -168,10 +182,11 @@ class SmartTrader:
                     {
                         "open": q.open,
                         "close": q.close,
-                        "rsi": TA.RSI(np.array(self.close_values), 14)[-1],
-                        "sma": TA.SMA(np.array(self.close_values), 12)[-1],
+                        "rsi": TA.RSI(np.array(self.close_values, dtype=float), 14)[-1],
+                        "sma": TA.SMA(np.array(self.close_values, dtype=float), 12)[-1],
                         "obv": TA.OBV(
-                            np.array(self.close_values), np.array(self.volume_values)
+                            np.array(self.close_values, dtype=float),
+                            np.array(self.volume_values, dtype=float),
                         )[-1],
                     }
                 )
@@ -201,7 +216,7 @@ class SmartTrader:
                             qty=percentage_to_sell,
                             side="sell",
                             type="market",
-                            time_in_force="gtc",
+                            time_in_force="day",
                         )
 
                     if action[0] > 0:
@@ -214,12 +229,12 @@ class SmartTrader:
                                 qty=amount,
                                 side="buy",
                                 type="market",
-                                time_in_force="gtc",
+                                time_in_force="day",
                             )
                         else:
                             print("Not enough cash to buy stock")
 
-            self.stream.subscribe_crypto_bars(print_crypto_trade, *tickers)
+            self.stream.subscribe_bars(print_crypto_trade, *tickers)
 
             self.stream.run()
 
@@ -236,10 +251,11 @@ class SmartTrader:
                     {
                         "open": q.open,
                         "close": q.close,
-                        "rsi": TA.RSI(np.array(self.close_values), 14)[-1],
-                        "sma": TA.SMA(np.array(self.close_values), 12)[-1],
+                        "rsi": TA.RSI(np.array(self.close_values, dtype=float), 14)[-1],
+                        "sma": TA.SMA(np.array(self.close_values, dtype=float), 12)[-1],
                         "obv": TA.OBV(
-                            np.array(self.close_values), np.array(self.volume_values)
+                            np.array(self.close_values, dtype=float),
+                            np.array(self.volume_values, dtype=float),
                         )[-1],
                     }
                 )
@@ -272,7 +288,7 @@ class SmartTrader:
                             qty=percentage_to_sell,
                             side="sell",
                             type="market",
-                            time_in_force="gtc",
+                            time_in_force="day",
                         )
 
                     if action[0][0] > 0:
@@ -285,31 +301,35 @@ class SmartTrader:
                                 qty=amount,
                                 side="buy",
                                 type="market",
-                                time_in_force="gtc",
+                                time_in_force="day",
                             )
                         else:
                             print("Not enough cash to buy stock")
 
-            self.stream.subscribe_crypto_bars(print_crypto_trade, *tickers)
+            self.stream.subscribe_bars(print_crypto_trade, *tickers)
 
             self.stream.run()
 
 
 if __name__ == "__main__":
+
+    alpaca_key = retrieve_secret("alpaca_keys", id="api_key")
+    alpaca_secret = retrieve_secret("alpaca_keys", secret="api_secret")
+
     # initiate the class for historical data
     # if you want to trade live you need to pass in the stream parameter
     trader = SmartTrader(
-        api_key="PKP1ETYE7CJ159NMRJ9S",
-        secret_key="teabIy9nt6drve1VXVmudbsb2TtLSSfNMkhZuIi9",
+        api_key=alpaca_key,
+        secret_key=alpaca_secret,
         endpoint="https://paper-api.alpaca.markets",
         api=tradeapi.REST(
-            key_id="PKP1ETYE7CJ159NMRJ9S",
-            secret_key="teabIy9nt6drve1VXVmudbsb2TtLSSfNMkhZuIi9",
+            key_id=alpaca_key,
+            secret_key=alpaca_secret,
             base_url=URL("https://paper-api.alpaca.markets"),
         ),
         stream=Stream(
-            "PKP1ETYE7CJ159NMRJ9S",
-            "teabIy9nt6drve1VXVmudbsb2TtLSSfNMkhZuIi9",
+            alpaca_key,
+            alpaca_secret,
             base_url=URL("https://paper-api.alpaca.markets"),
             data_feed="iex",
         ),  # <- replace to 'sip' if you have PRO subscription
@@ -319,15 +339,6 @@ if __name__ == "__main__":
     df = trader.get_data(
         symbol=[
             "NVDA",
-            "AAPL",
-            "MSFT",
-            "AMZN",
-            "GOOGL",
-            "NFLX",
-            "NTDOY",
-            "AMD",
-            "SNOW",
-            "MDB",
         ],
         timeframe=TimeFrame.Day,
         start_date=datetime(2020, 1, 1),
@@ -338,13 +349,21 @@ if __name__ == "__main__":
     trader.train_and_run_model(
         df=df,
         model=PPO,
-        total_timesteps=10,
-        log_interval=10,
+        total_timesteps=1,
+        log_interval=1,
         ensemble=False,
-        visualize=False,
+        visualize=True,
     )
 
     # run the model live
     # model name should be in the format of trained_model_{model_name}_{day-month-last 2 digits of the current year}
-    trader.run_model(model_names=["trained_model_PPO_31-10-22", "trained_model_A2C_30-10-22"], tickers=["BTCUSD"], ensemble=True)
-
+    # trader.run_model(model_names=["trained_model_PPO_31-10-22", "trained_model_A2C_30-10-22"], tickers=["NVDA",
+    #         "AAPL",
+    #         "MSFT",
+    #         "AMZN",
+    #         "GOOGL",
+    #         "NFLX",
+    #         "NTDOY",
+    #         "AMD",
+    #         "SNOW",
+    #         "MDB",], ensemble=True)
