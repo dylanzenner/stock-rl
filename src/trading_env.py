@@ -26,9 +26,6 @@ class StockTradingEnv(gym.Env):
         self.net_worth = 0
         self.profit = 0
         self.df = df
-        self.graph_balance = []
-        self.graph_reward = []
-        self.previous_net_worth = 0
 
         # Actions for BUY, SELL, HOLD
         # using Box here because all 3 algorithms are able to work with the box action space
@@ -36,7 +33,7 @@ class StockTradingEnv(gym.Env):
 
         # the observation will be the last 1 data points
         self.observation_space = spaces.Box(
-            low=0, high=1, shape=(6, 5), dtype="float32"
+            low=-np.inf, high=np.inf, shape=(6, 5), dtype="float32"
         )
 
     def _next_observation(self):
@@ -51,9 +48,7 @@ class StockTradingEnv(gym.Env):
                 self.df.loc[self.current_step : self.current_step + 4, "obv"],
             ]
         )
-        # print('-----------')
-        # print(frame)
-        # print('-----------')
+
 
         # Append account info
         obs = np.append(
@@ -63,61 +58,59 @@ class StockTradingEnv(gym.Env):
                     self.balance,
                     self.stock_held,
                     self.trades_made,
-                    self.net_worth,  # place holder for now
-                    self.profit,  # place holder for now
+                    self.net_worth,
+                    self.profit,
                 ]
             ],
             axis=0,
         )
-        # print('-----------')
-        # print(obs)
-        # print('-----------')
+
         return obs
 
     def _take_action(self, action):
-
         current_price = random.uniform(
             self.df.loc[self.current_step, "open"],
             self.df.loc[self.current_step, "close"],
         )
 
         if action[0] > 0 and self.df.loc[self.current_step, "rsi"] < 30:
+
             # Buy 10% of balance in stock as long as we are spending at least $1
             # This is due to alpaca markets requiring a minimum of $1 to be spent per trade
             stock_purchased = self.balance * 0.10 / current_price
             if stock_purchased >= 1:
                 self.balance -= stock_purchased * current_price
-                self.graph_balance.append(self.balance)
                 self.stock_held += stock_purchased
                 self.trades_made += stock_purchased
-            else:
-                pass
 
-        if action[0] < 0 and self.df.loc[self.current_step, "rsi"] > 70:
+        elif action[0] < 0 and self.df.loc[self.current_step, "rsi"] > 70:
+
             # Sell 10% of stock held
             stocks_sold = int(self.stock_held * 0.10)
 
             self.trades_made += stocks_sold
             self.balance += int(stocks_sold * current_price)
-            self.graph_balance.append(self.balance)
             self.stock_held -= stocks_sold
 
-        # self.net_worth = self.balance + self.stock_held_held * current_price
+        self.net_worth = self.balance + self.stock_held * current_price
+        self.profit = self.net_worth - self.balance
 
     def step(self, action):
 
         # Execute one time step within the environment
         self._take_action(action)
-        self.graph_reward.append(self.current_step)
         self.current_step += 1
 
         # # if the current step ever goes above the length of the dataframe, then reset to 0
         if self.current_step > len(self.df.loc[:, "open"].values) - 6:
             self.current_step = 0
 
-        reward = self.balance
+        reward = self.profit
 
-        done = self.balance <= 0
+        if self.net_worth <= 0:
+            done = True
+        else:
+            done = False
 
         obs = self._next_observation()
         return obs, reward, done, {}
@@ -126,14 +119,17 @@ class StockTradingEnv(gym.Env):
         self.balance = 10000
         self.trades_made = 0
         self.stock_held = 0
-        self.data = []
+        self.net_worth = 10000
+        self.profit = 0
 
         # set the current step to the first point in the dataframe
         self.current_step = random.randint(0, len(self.df.loc[:, "open"].values) - 6)
         return self._next_observation()
 
     def render(self, mode="human", close=False):
-        print("-------------------------------")
+        # print("-------------------------------")
         print("Balance: {}".format(self.balance))
         print("Stocks held: {}".format(self.stock_held))
         print("Trades made: {}".format(self.trades_made))
+        print("Net Worth: {}".format(self.net_worth))
+        print("Profit: {}".format(self.profit))

@@ -17,6 +17,12 @@ import alpaca_trade_api as tradeapi
 import numpy as np
 import pandas as pd
 import boto3
+import os
+
+log_dir = "logs"
+
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
 
 
 secret_client = boto3.client("secretsmanager")
@@ -76,7 +82,7 @@ class SmartTrader:
 
         return df
 
-    def train_and_run_model(
+    def train_model(
         self, df, model, total_timesteps, log_interval, ensemble, visualize=False
     ):
         if ensemble:
@@ -89,13 +95,34 @@ class SmartTrader:
                 else:
                     name_var = "A2C"
                 env = DummyVecEnv([lambda: StockTradingEnv(df)])
-                model_name = i("MlpPolicy", env, verbose=1)
+
+                n_actions = env.action_space.shape[-1]
+                action_noise = OrnsteinUhlenbeckActionNoise(
+                    mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions)
+                )
+
+                model_name = (
+                    i("MlpPolicy", env, verbose=1, tensorboard_log="logs/")
+                    if i in (PPO, A2C)
+                    else i(
+                        "MlpPolicy",
+                        env,
+                        verbose=1,
+                        action_noise=action_noise,
+                        tensorboard_log="logs/",
+                        train_freq=(1, "step"),
+                    )
+                )
                 model_name.learn(
-                    total_timesteps=total_timesteps, log_interval=log_interval
+                    total_timesteps=total_timesteps,
+                    log_interval=log_interval,
+                    reset_num_timesteps=False,
+                    tb_log_name=name_var,
                 )
                 model_name.save(
                     "trained_model_{}_{}".format(
-                        name_var, datetime.now().strftime("%d-%m-%y")
+                        name_var,
+                        datetime.now().strftime("%d-%m-%y"),
                     )
                 )
                 self.models_to_ensemble.append(
@@ -107,12 +134,17 @@ class SmartTrader:
             if visualize:
                 model_1 = model[0].load(self.models_to_ensemble[0])
                 model_2 = model[1].load(self.models_to_ensemble[1])
-                # model_3 = model[2].load(models_to_ensemble[2]) model for TD3
+                model_3 = model[2].load(self.models_to_ensemble[2])
+                print(model_1, model_2, model_3)
 
                 obs = env.reset()
                 for i in range(2000):
                     # print("---------------------------")
-                    action = model_1.predict(obs)[0] + model_2.predict(obs)[0] / 2
+                    action = (
+                        model_1.predict(obs)[0]
+                        + model_2.predict(obs)[0]
+                        + model_3.predict(obs)[0]
+                    ) / 3
                     obs, rewards, done, info = env.step(action)
                 env.render()
 
@@ -123,8 +155,13 @@ class SmartTrader:
                 else:
                     name_var = "A2C"
                 env = DummyVecEnv([lambda: StockTradingEnv(df)])
-                model = model("MlpPolicy", env, verbose=1)
-                model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
+                model = model("MlpPolicy", env, verbose=1, tensorboard_log="logs/")
+                model.learn(
+                    total_timesteps=total_timesteps,
+                    log_interval=log_interval,
+                    tb_log_name=name_var,
+                    reset_num_timesteps=False,
+                )
                 model.save(
                     "trained_model_{}_{}".format(
                         name_var, datetime.now().strftime("%d-%m-%y")
@@ -133,7 +170,7 @@ class SmartTrader:
 
                 if visualize:
                     obs = env.reset()
-                    for i in range(2000):
+                    for i in range(200):
                         # print("---------------------------")
                         action, _states = model.predict(obs)
                         obs, rewards, done, info = env.step(action)
@@ -145,15 +182,33 @@ class SmartTrader:
                 action_noise = OrnsteinUhlenbeckActionNoise(
                     mean=np.zeros(n_actions), sigma=0.1 * np.ones(n_actions)
                 )
-                model = model("MlpPolicy", env, verbose=1, action_noise=action_noise)
-                model.learn(total_timesteps=total_timesteps, log_interval=log_interval)
+                if model == TD3:
+                    name = "TD3"
+                else:
+                    name = "DDPG"
+                model = model(
+                    "MlpPolicy",
+                    env,
+                    verbose=1,
+                    action_noise=action_noise,
+                    tensorboard_log="logs/",
+                    train_freq=(1, "step"),
+                )
+                model.learn(
+                    total_timesteps=total_timesteps,
+                    log_interval=log_interval,
+                    reset_num_timesteps=False,
+                    tb_log_name=name,
+                )
                 model.save(
-                    "trained_model_TD3_{}".format(datetime.now().strftime("%d-%m-%y"))
+                    "trained_model_{}_{}".format(
+                        name, datetime.now().strftime("%d-%m-%y")
+                    )
                 )
 
                 if visualize:
                     obs = env.reset()
-                    for i in range(4):
+                    for i in range(10000):
                         # print("---------------------------")
                         action, _states = model.predict(obs)
                         print("Action: {}, States: {}".format(action, _states))
@@ -161,7 +216,7 @@ class SmartTrader:
                     env.render()
 
     def run_model(self, model_names, ensemble=None, tickers=None):
-        global model_1, model_2, model_3
+        model_1, model_2, model_3 = None, None, None
         if ensemble is not None:
             for model in model_names:
                 if "PPO" in model:
@@ -171,7 +226,7 @@ class SmartTrader:
                 else:
                     model_3 = A2C.load(model)
 
-            async def print_crypto_trade(q):
+            async def make_trade(q):
                 account = self.api.get_account()
                 cash = float(account.cash)
                 print(account)
@@ -200,9 +255,9 @@ class SmartTrader:
                 if len(self.data) >= 14:
                     action = (
                         model_1.predict(df.tail(6))[0]
-                        + model_3.predict(df.tail(6))[0] / 2
-                        # + model_3.predict(df.tail(6))[0] / 3
-                    )
+                        + model_2.predict(df.tail(6))[0]
+                        + model_3.predict(df.tail(6))[0]
+                    ) / 3
                     print("ENSEMBLE ACTION: {}".format(action))
 
                     if action[0] < 0:
@@ -234,13 +289,13 @@ class SmartTrader:
                         else:
                             print("Not enough cash to buy stock")
 
-            self.stream.subscribe_bars(print_crypto_trade, *tickers)
+            self.stream.subscribe_bars(make_trade, *tickers)
 
             self.stream.run()
 
         else:
 
-            async def print_crypto_trade(q):
+            async def make_trade(q):
                 account = self.api.get_account()
                 cash = float(account.cash)
                 print(account)
@@ -306,8 +361,7 @@ class SmartTrader:
                         else:
                             print("Not enough cash to buy stock")
 
-            self.stream.subscribe_bars(print_crypto_trade, *tickers)
-
+            self.stream.subscribe_bars(make_trade, *tickers)
             self.stream.run()
 
 
@@ -346,12 +400,16 @@ if __name__ == "__main__":
     )
 
     # train and run the model historical
-    trader.train_and_run_model(
+    trader.train_model(
         df=df,
-        model=PPO,
-        total_timesteps=1,
-        log_interval=1,
-        ensemble=False,
+        model=[
+            TD3,
+            PPO,
+            A2C,
+        ],  # use a list if you wish to train multiple models, otherwise just one
+        total_timesteps=1000,
+        log_interval=10,
+        ensemble=True,
         visualize=True,
     )
 
