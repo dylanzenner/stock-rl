@@ -136,7 +136,7 @@ class StockTradingEnv(gym.Env):
         print("Cumulative Return: {}".format(((self.net_worth - 10000) / 10000)))
         print("Annualized Return: {}".format((self.net_worth - 10000 / 10000) ** (1 / (self.df.shape[0] / 252)) - 1))
         print("Annualized Volatility: {}".format(self.df.loc[:, "percent_change"].std() * np.sqrt(252)))
-        print('Shape Ratio: {}'.format(((self.net_worth - 10000 / 10000) ** (1 / (self.df.shape[0] / 252)) - 1) / (self.df.loc[:, "percent_change"].std() * np.sqrt(252))))
+        print('Sharpe Ratio: {}'.format(((self.net_worth - 10000 / 10000) ** (1 / (self.df.shape[0] / 252)) - 1) / (self.df.loc[:, "percent_change"].std() * np.sqrt(252))))
         Roll_Max = self.df['close'].cummax()
         Daily_Drawdown = self.df['close']/ Roll_Max - 1.0
         Max_Daily_Drawdown = Daily_Drawdown.cummin()
