@@ -1,1 +1,6 @@
-stock.txt
+numpy
+gym
+stable
+pandas
+tensorflow
+
