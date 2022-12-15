@@ -1,0 +1,6 @@
+numpy
+gym
+stable
+pandas
+tensorflow
+
