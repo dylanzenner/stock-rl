@@ -19,11 +19,11 @@ class StockTradingEnv(gym.Env):
         super(StockTradingEnv, self).__init__()
 
         self.reward_range = (-sys.maxsize, sys.maxsize)
-        # we start with a 25,000 balance to avoid pattern day trading
+        # start with a 25,000 balance to avoid pattern day trading if trading with real money
         self.balance = 10000
         self.trades_made = 0
         self.stock_held = 0
-        self.net_worth = 0
+        self.net_worth = 10000
         self.profit = 0
         self.df = df
 
@@ -31,13 +31,12 @@ class StockTradingEnv(gym.Env):
         # using Box here because all 3 algorithms are able to work with the box action space
         self.action_space = spaces.Box(low=-1, high=1, shape=(1,), dtype="float32")
 
-        # the observation will be the last 1 data points
+        # the observation will be the last 6 data points
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(6, 5), dtype="float32"
         )
 
     def _next_observation(self):
-        # need to figure out how to wait for the data to be populated so we can return the dataframe for the next observation
 
         frame = np.array(
             [
@@ -128,16 +127,25 @@ class StockTradingEnv(gym.Env):
 
     def render(self, mode="human", close=False):
         # print("-------------------------------")
-        print("Balance: {}".format(self.balance))
-        print("Stocks held: {}".format(self.stock_held))
-        print("Trades made: {}".format(self.trades_made))
-        print("Net Worth: {}".format(self.net_worth))
-        print("Profit: {}".format(self.profit))
-        print("Cumulative Return: {}".format(((self.net_worth - 10000) / 10000)))
-        print("Annualized Return: {}".format((self.net_worth - 10000 / 10000) ** (1 / (self.df.shape[0] / 252)) - 1))
-        print("Annualized Volatility: {}".format(self.df.loc[:, "percent_change"].std() * np.sqrt(252)))
-        print('Sharpe Ratio: {}'.format(((self.net_worth - 10000 / 10000) ** (1 / (self.df.shape[0] / 252)) - 1) / (self.df.loc[:, "percent_change"].std() * np.sqrt(252))))
-        #In 2022,risk-free rate is 3%, sharpe ratio = (return of portfolio - 3%)/ self.df.loc[:, "percent_change"].std() * np.sqrt(252)
+        balance = self.balance
+        stock_held = self.stock_held
+        trades_made = self.trades_made
+        net_worth = self.net_worth
+        profit = self.profit
+        cumulative_return = (self.net_worth - 10000) / 10000
+        annualized_return = (self.net_worth - 10000 / 10000) ** (1 / (self.df.shape[0] / 252)) - 1
+        annualized_volatility = self.df.loc[:, "percent_change"].std() * np.sqrt(252)
+        sharpe_ratio = (cumulative_return - (cumulative_return * 0.03)) / (self.df.loc[:, "percent_change"].std() * np.sqrt(252))
+        
+        print("Balance: {}".format(balance))
+        print("Stocks held: {}".format(stock_held))
+        print("Trades made: {}".format(trades_made))
+        print("Net Worth: {}".format(net_worth))
+        print("Profit: {}".format(profit))
+        print("Cumulative Return: {}".format(cumulative_return))
+        print("Annualized Return: {}".format(annualized_return))
+        print("Annualized Volatility: {}".format(annualized_volatility))
+        print('Sharpe Ratio: {}'.format(sharpe_ratio))
         Roll_Max = self.df['close'].cummax()
         Daily_Drawdown = self.df['close']/ Roll_Max - 1.0
         Max_Daily_Drawdown = Daily_Drawdown.cummin()

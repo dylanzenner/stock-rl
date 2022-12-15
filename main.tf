@@ -12,7 +12,7 @@ terraform {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 4.0"
-          }
+    }
   }
 }
 
@@ -90,13 +90,13 @@ resource "aws_security_group" "stock-rl-security-group" {
   }
 
   # Uncomment and add your IP address to allow SSH access to the EC2 instance
-  #   ingress {
-  #     description = "Allow SSH Access from your personal computer"
-  #     from_port   = 22
-  #     to_port     = 22
-  #     protocol    = "tcp"
-  #     cidr_blocks = [] # Add your IP address here in format "0.0.0.0/32"
-  #   }
+  ingress {
+    description = "Allow SSH Access from your personal computer"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["68.112.191.55/32"] # Add your IP address here in format "0.0.0.0/32"
+  }
 
   egress = [{
     description      = "Allow all outbound traffic"
@@ -116,59 +116,71 @@ resource "aws_security_group" "stock-rl-security-group" {
 }
 
 
-# # Create a network interface
-# resource "aws_network_interface" "stock-rl-network-interface" {
-#   subnet_id       = aws_subnet.stock-rl-public-subnet.id
-#   private_ip      = "10.0.128.100"
-#   security_groups = [aws_security_group.stock-rl-security-group.id]
-# }
+# Create a network interface
+resource "aws_network_interface" "stock-rl-network-interface" {
+  subnet_id       = aws_subnet.stock-rl-public-subnet.id
+  private_ip      = "10.0.128.100"
+  security_groups = [aws_security_group.stock-rl-security-group.id]
+}
 
-# # Create an EIP
-# resource "aws_eip" "stock-rl-eip" {
-#   vpc                       = true
-#   network_interface         = aws_network_interface.stock-rl-network-interface.id
-#   associate_with_private_ip = "10.0.128.100"
-#   depends_on = [
-#     aws_internet_gateway.stock-rl-igw
-#   ]
-# }
+# Create an EIP
+resource "aws_eip" "stock-rl-eip" {
+  vpc                       = true
+  network_interface         = aws_network_interface.stock-rl-network-interface.id
+  associate_with_private_ip = "10.0.128.100"
+  depends_on = [
+    aws_internet_gateway.stock-rl-igw
+  ]
+}
 
-# # Create an EC2 Instance
-# resource "aws_instance" "stock-rl-ec2-instance" {
-#   ami                         = "ami-026b57f3c383c2eec"
-#   instance_type               = "t2.micro"
-#   availability_zone           = "us-east-1a"
-#   key_name                    = "stock-rl-key-pair"
-#   subnet_id                   = aws_subnet.stock-rl-public-subnet.id
-#   associate_public_ip_address = true
-#   vpc_security_group_ids      = [aws_security_group.stock-rl-security-group.id]
-#   monitoring                  = true
-#   network_interface {
-#     network_interface_id = aws_network_interface.stock-rl-network-interface.id
-#     device_index         = 0
-#   }
-#   # user_data = <<-EOF
-#   # #! /bin/bash
-#   #   sudo apt update -y
-#   #   will fill in later once we know exactly what we need
-#   #   EOF
+# Create an EC2 Instance
+resource "aws_instance" "stock-rl-ec2-instance" {
+  ami                         = "ami-026b57f3c383c2eec"
+  instance_type               = "t2.large"
+  availability_zone           = "us-east-1a"
+  key_name                    = "stock-rl-key-pair"
+  subnet_id                   = aws_subnet.stock-rl-public-subnet.id
+  associate_public_ip_address = true
+  vpc_security_group_ids      = [aws_security_group.stock-rl-security-group.id]
+  monitoring                  = true
+  network_interface {
+    network_interface_id = aws_network_interface.stock-rl-network-interface.id
+    device_index         = 0
+  }
+  tags = {
+    Name = "stock-rl-ec2-instance"
+  }
 
-#   tags = {
-#     Name = "stock-rl-ec2-instance"
-#   }
-# }
+  user_data = <<-EOF
+  #! /bin/bash
+    yum update -y
+    sudo yum install -y https://s3.us-east-2.amazonaws.com/amazon-ssm-us-east-2/latest/linux_amd64/amazon-ssm-agent.rpm
+    sudo mkdir /usr/bin/bot
+    sudo yum install python3-pip
+    sudo pip3 uninstall numpy
+    sudo pip3 uninstall pandas
+    sudo pip3 install numpy
+    sudo pip3 install pandas
+    sudo pip3 install boto3
+    sudo pip3 install alpaca-trade-api
+    sudo yum install -y python3-devel.x86_64
+    sudo yum install -y gcc
+    cd bot
+    sudo wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz
+    sudo tar -xvf ta-lib-0.4.0-src.tar.gz
+    cd ta-lib
+    sudo ./configure --prefix=/usr
+    sudo make
+    sudo make install
+    sudo ldconfig
+    cd ..
+    cd ..
+    sudo pip3 install TA-Lib
+    cd bot
+    sudo aws s3 cp s3://smart-trader/src /usr/bin/bot/ --recursive
+    pip3 install -r requirements.txt
+    python3 /usr/bin/bot/main.py
+    EOF
 
-# # Create an SNS topic to send notifications when trades are made
-# resource "aws_sns_topic" "stock-rl-sns-topic" {
-#   name = "stock-rl-sns-topic"
-# }
+}
 
-# # Create an SNS topic subscription to send notifications to my email
-# resource "aws_sns_topic_subscription" "stock-rl-sns-topic-subscription" {
-#   topic_arn = aws_sns_topic.stock-rl-sns-topic.arn
-#   protocol  = "email"
-#   endpoint  = "your email address"
-#   depends_on = [
-#     aws_sns_topic.stock-rl-sns-topic
-#   ]
-# }

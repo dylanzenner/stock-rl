@@ -29,7 +29,8 @@ secret_client = boto3.client("secretsmanager")
 
 
 def retrieve_secret(secret_name, id=None, secret=None):
-    get_secret_value_response = secret_client.get_secret_value(SecretId=secret_name)
+    get_secret_value_response = secret_client.get_secret_value(
+        SecretId=secret_name)
     if id:
         api_key = eval(get_secret_value_response["SecretString"])
         return api_key["api_key"]
@@ -53,7 +54,8 @@ class SmartTrader:
     def get_data(self, symbol, timeframe, start_date, end_date):
         stock_client = StockHistoricalDataClient(self.api_key, self.secret_key)
         request_params = StockBarsRequest(
-            symbol_or_symbols=[*symbol] if type(symbol) == type([]) else [symbol],
+            symbol_or_symbols=[
+                *symbol] if type(symbol) == type([]) else [symbol],
             timeframe=timeframe,
             start=start_date,
             end=end_date,
@@ -65,6 +67,7 @@ class SmartTrader:
         df = df.drop(columns=["timestamp"])
         df["date"] = pd.to_datetime(df["date"])
         df.set_index("date")
+        df['percent_change'] = df['close'].pct_change()
         df["rsi"] = df.ta.rsi(
             close=df["close"], length=14, scalar=None, drift=None, offset=None
         )
@@ -92,6 +95,8 @@ class SmartTrader:
                     name_var = "PPO"
                 elif i == TD3:
                     name_var = "TD3"
+                elif i == DDPG:
+                    name_var = 'DDPG'
                 else:
                     name_var = "A2C"
                 env = DummyVecEnv([lambda: StockTradingEnv(df)])
@@ -113,6 +118,7 @@ class SmartTrader:
                         train_freq=(1, "step"),
                     )
                 )
+
                 model_name.learn(
                     total_timesteps=total_timesteps,
                     log_interval=log_interval,
@@ -138,7 +144,7 @@ class SmartTrader:
                 print(model_1, model_2, model_3)
 
                 obs = env.reset()
-                for i in range(2000):
+                for i in range(10000):
                     # print("---------------------------")
                     action = (
                         model_1.predict(obs)[0]
@@ -155,7 +161,9 @@ class SmartTrader:
                 else:
                     name_var = "A2C"
                 env = DummyVecEnv([lambda: StockTradingEnv(df)])
-                model = model("MlpPolicy", env, verbose=1, tensorboard_log="logs/")
+                model = model("MlpPolicy", env, verbose=1,
+                              tensorboard_log="logs/")
+
                 model.learn(
                     total_timesteps=total_timesteps,
                     log_interval=log_interval,
@@ -170,13 +178,13 @@ class SmartTrader:
 
                 if visualize:
                     obs = env.reset()
-                    for i in range(200):
+                    for i in range(10000):
                         # print("---------------------------")
                         action, _states = model.predict(obs)
                         obs, rewards, done, info = env.step(action)
                     env.render()
 
-            else:
+            elif model in (DDPG, TD3):
                 env = DummyVecEnv([lambda: StockTradingEnv(df)])
                 n_actions = env.action_space.shape[-1]
                 action_noise = OrnsteinUhlenbeckActionNoise(
@@ -194,10 +202,11 @@ class SmartTrader:
                     tensorboard_log="logs/",
                     train_freq=(1, "step"),
                 )
+
                 model.learn(
                     total_timesteps=total_timesteps,
                     log_interval=log_interval,
-                    reset_num_timesteps=False,
+                    reset_num_timesteps=True,
                     tb_log_name=name,
                 )
                 model.save(
@@ -211,20 +220,22 @@ class SmartTrader:
                     for i in range(10000):
                         # print("---------------------------")
                         action, _states = model.predict(obs)
-                        print("Action: {}, States: {}".format(action, _states))
                         obs, rewards, done, info = env.step(action)
                     env.render()
 
     def run_model(self, model_names, ensemble=None, tickers=None):
         model_1, model_2, model_3 = None, None, None
-        if ensemble is not None:
+        if ensemble is True:
             for model in model_names:
                 if "PPO" in model:
                     model_1 = PPO.load(model)
-                elif "TD3" in model:
-                    model_2 = TD3.load(model)
+                elif "A2C" in model:
+                    model_2 = A2C.load(model)
                 else:
-                    model_3 = A2C.load(model)
+                    try:
+                        model_3 = TD3.load(model)
+                    except Exception as e:
+                        model_3 = DDPG.load(model)
 
             async def make_trade(q):
                 account = self.api.get_account()
@@ -322,10 +333,12 @@ class SmartTrader:
                 print(len(self.close_values))
 
                 # determine which model to use
-                if "PPO" in model_names:
+                if "PPO" in model_names[0]:
                     model = PPO.load(model_names[0])
-                elif "TD3" in model_names:
+                elif "TD3" in model_names[0]:
                     model = TD3.load(model_names[0])
+                elif 'DDPG' in model_names[0]:
+                    model = DDPG.load(model_names[0])
                 else:
                     model = A2C.load(model_names[0])
 
@@ -367,23 +380,23 @@ class SmartTrader:
 
 if __name__ == "__main__":
 
-    alpaca_key = retrieve_secret("alpaca_keys", id="api_key")
-    alpaca_secret = retrieve_secret("alpaca_keys", secret="api_secret")
+    # alpaca_key = retrieve_secret("alpaca_keys", id="api_key")
+    # alpaca_secret = retrieve_secret("alpaca_keys", secret="api_secret")
 
     # initiate the class for historical data
     # if you want to trade live you need to pass in the stream parameter
     trader = SmartTrader(
-        api_key=alpaca_key,
-        secret_key=alpaca_secret,
+        api_key='PKIP99J0RO3VLAS1GLBV',
+        secret_key='Yhq6IrRceM2XHAGCW8DOs4kUUC2nrhZqbVhVOMHS',
         endpoint="https://paper-api.alpaca.markets",
         api=tradeapi.REST(
-            key_id=alpaca_key,
-            secret_key=alpaca_secret,
+            key_id='PKIP99J0RO3VLAS1GLBV',
+            secret_key='Yhq6IrRceM2XHAGCW8DOs4kUUC2nrhZqbVhVOMHS',
             base_url=URL("https://paper-api.alpaca.markets"),
         ),
         stream=Stream(
-            alpaca_key,
-            alpaca_secret,
+            'PKIP99J0RO3VLAS1GLBV',
+            'Yhq6IrRceM2XHAGCW8DOs4kUUC2nrhZqbVhVOMHS',
             base_url=URL("https://paper-api.alpaca.markets"),
             data_feed="iex",
         ),  # <- replace to 'sip' if you have PRO subscription
@@ -393,35 +406,88 @@ if __name__ == "__main__":
     df = trader.get_data(
         symbol=[
             "NVDA",
+            "AAPL",
+            "MSFT",
+            "AMZN",
+            "GOOGL",
+            "NFLX",
+            "NTDOY",
+            "AMD",
+            "SNOW",
+            "SFIX",
+            "CHWY",
+            "ABNB",
+            "TSLA",
+            "DIS",
+            "SHOP",
+            "SONY",
+            "CRM",
+            "ROKU",
+            "DDOG",
+            "PINS",
+            "DBX",
+            "ATVI",
+            "META",
+            "ACN",
+            "CSCO",
+            "ADBE",
+            "IBM",
+            "SAP",
+            "INTC",
+            "ORCL",
+            "MDB",
         ],
         timeframe=TimeFrame.Day,
-        start_date=datetime(2020, 1, 1),
-        end_date=datetime(2021, 1, 1),
+        start_date=datetime(2017, 1, 1),
+        end_date=datetime(2022, 1, 1),
     )
 
     # train and run the model historical
     trader.train_model(
         df=df,
-        model=[
-            TD3,
-            PPO,
-            A2C,
-        ],  # use a list if you wish to train multiple models, otherwise just one
-        total_timesteps=1000,
-        log_interval=10,
-        ensemble=True,
+        model=DDPG,  # use a list if you wish to train multiple models, otherwise just one
+        total_timesteps=10000,
+        log_interval=1,
+        ensemble=False,
         visualize=True,
     )
 
     # run the model live
     # model name should be in the format of trained_model_{model_name}_{day-month-last 2 digits of the current year}
-    # trader.run_model(model_names=["trained_model_PPO_31-10-22", "trained_model_A2C_30-10-22"], tickers=["NVDA",
-    #         "AAPL",
-    #         "MSFT",
-    #         "AMZN",
-    #         "GOOGL",
-    #         "NFLX",
-    #         "NTDOY",
-    #         "AMD",
-    #         "SNOW",
-    #         "MDB",], ensemble=True)
+    trader.run_model(
+        model_names=["trained_model_DDPG_13-12-22"], # a list containing the algorihtm / algorithms to use
+        tickers=[
+            "NVDA",
+            "AAPL",
+            "MSFT",
+            "AMZN",
+            "GOOGL",
+            "NFLX",
+            "NTDOY",
+            "AMD",
+            "SNOW",
+            "SFIX",
+            "CHWY",
+            "ABNB",
+            "TSLA",
+            "DIS",
+            "SHOP",
+            "SONY",
+            "CRM",
+            "ROKU",
+            "DDOG",
+            "PINS",
+            "DBX",
+            "ATVI",
+            "META",
+            "ACN",
+            "CSCO",
+            "ADBE",
+            "IBM",
+            "SAP",
+            "INTC",
+            "ORCL",
+            "MDB",
+        ],
+        ensemble=False, # either None or a bool value
+    )
