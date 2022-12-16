@@ -10,7 +10,22 @@ Smart Trader automatically traines the agents you specify daily so there is no n
 
 ![](diagrams/smart-trader-architecture.png)
 
-# Steps for Replication
+# Steps for Replication (Local)
+
+- clone the repo
+- open the repo in your editor of choice
+- make your changes to main.py accordingly
+- open a terminal
+- run the following commands
+```bash
+source .venv/bin/activate
+```
+
+```bash
+python3 src/main.py
+```
+
+# Steps for Replication (AWS)
 
 - <details>
     <summary style="font-size:larger;">Step 1: Obtain Alpaca Markets API Keys</summary>
