@@ -138,7 +138,7 @@ resource "aws_instance" "stock-rl-ec2-instance" {
   ami                         = "ami-026b57f3c383c2eec"
   instance_type               = "t2.large"
   availability_zone           = "us-east-1a"
-  key_name                    = "stock-rl-key-pair"
+  key_name                    = "new-stock" #"stock-rl-key-pair"
   subnet_id                   = aws_subnet.stock-rl-public-subnet.id
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.stock-rl-security-group.id]
