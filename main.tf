@@ -117,21 +117,21 @@ resource "aws_security_group" "stock-rl-security-group" {
 
 
 # Create a network interface
-resource "aws_network_interface" "stock-rl-network-interface" {
-  subnet_id       = aws_subnet.stock-rl-public-subnet.id
-  private_ip      = "10.0.128.100"
-  security_groups = [aws_security_group.stock-rl-security-group.id]
-}
+# resource "aws_network_interface" "stock-rl-network-interface" {
+#   subnet_id       = aws_subnet.stock-rl-public-subnet.id
+#   private_ip      = "10.0.128.100"
+#   security_groups = [aws_security_group.stock-rl-security-group.id]
+# }
 
-# Create an EIP
-resource "aws_eip" "stock-rl-eip" {
-  vpc                       = true
-  network_interface         = aws_network_interface.stock-rl-network-interface.id
-  associate_with_private_ip = "10.0.128.100"
-  depends_on = [
-    aws_internet_gateway.stock-rl-igw
-  ]
-}
+# # Create an EIP
+# resource "aws_eip" "stock-rl-eip" {
+#   vpc                       = true
+#   network_interface         = aws_network_interface.stock-rl-network-interface.id
+#   associate_with_private_ip = "10.0.128.100"
+#   depends_on = [
+#     aws_internet_gateway.stock-rl-igw
+#   ]
+# }
 
 # Create an EC2 Instance
 resource "aws_instance" "stock-rl-ec2-instance" {
@@ -143,10 +143,10 @@ resource "aws_instance" "stock-rl-ec2-instance" {
   associate_public_ip_address = true
   vpc_security_group_ids      = [aws_security_group.stock-rl-security-group.id]
   monitoring                  = true
-  network_interface {
-    network_interface_id = aws_network_interface.stock-rl-network-interface.id
-    device_index         = 0
-  }
+  # network_interface {
+  #   network_interface_id = aws_network_interface.stock-rl-network-interface.id
+  #   device_index         = 0
+  # }
   tags = {
     Name = "stock-rl-ec2-instance"
   }
