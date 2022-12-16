@@ -380,23 +380,23 @@ class SmartTrader:
 
 if __name__ == "__main__":
 
-    # alpaca_key = retrieve_secret("alpaca_keys", id="api_key")
-    # alpaca_secret = retrieve_secret("alpaca_keys", secret="api_secret")
+    alpaca_key = retrieve_secret("alpaca_keys", id="api_key")
+    alpaca_secret = retrieve_secret("alpaca_keys", secret="api_secret")
 
     # initiate the class for historical data
     # if you want to trade live you need to pass in the stream parameter
     trader = SmartTrader(
-        api_key='PKIP99J0RO3VLAS1GLBV',
-        secret_key='Yhq6IrRceM2XHAGCW8DOs4kUUC2nrhZqbVhVOMHS',
+        api_key=alpaca_key,
+        secret_key=alpaca_secret,
         endpoint="https://paper-api.alpaca.markets",
         api=tradeapi.REST(
-            key_id='PKIP99J0RO3VLAS1GLBV',
-            secret_key='Yhq6IrRceM2XHAGCW8DOs4kUUC2nrhZqbVhVOMHS',
+            key_id=alpaca_key,
+            secret_key=alpaca_secret,
             base_url=URL("https://paper-api.alpaca.markets"),
         ),
         stream=Stream(
-            'PKIP99J0RO3VLAS1GLBV',
-            'Yhq6IrRceM2XHAGCW8DOs4kUUC2nrhZqbVhVOMHS',
+            alpaca_key,
+            alpaca_secret,
             base_url=URL("https://paper-api.alpaca.markets"),
             data_feed="iex",
         ),  # <- replace to 'sip' if you have PRO subscription
