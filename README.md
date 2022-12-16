@@ -91,11 +91,11 @@ Smart Trader automatically traines the agents you specify daily so there is no n
     <br>
     &nbsp;&nbsp;&nbsp;&nbsp;
 
-    - Uncomment lines 90 - 97.
+    - Uncomment lines 93 - 99.
     <br>
     &nbsp;&nbsp;&nbsp;&nbsp;
 
-    - Add your IP address to line 96
+    - Add your IP address to line 98
     <br>
     &nbsp;&nbsp;&nbsp;&nbsp;
     
@@ -103,7 +103,7 @@ Smart Trader automatically traines the agents you specify daily so there is no n
       keypair name on line 139 with the name of the 
       keypair you just created
 
-    - Replace line 176 in main.tf with: 
+    - Replace line 180 in main.tf with: 
   
       ```bash
       sudo aws s3 cp s3://your-s3-bucket-name-here/src /usr/bin/bot/ --recursive
